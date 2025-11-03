@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+data:
+  rules.yaml: |
+    groups:
+      - name: cpu-alerts
+        rules:
+          - alert: HighCPUUsage
+            expr: avg(rate(container_cpu_usage_seconds_total[2m])) * 100 > 80
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage detected"
+              description: "Pod {{ $labels.pod }} is using more than 80% CPU (current value: {{ $value }}%)"

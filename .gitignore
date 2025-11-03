@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Kubernetes & Docker
+*.log
+*.out
+*.pid
+*.sock
+
+# System / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Build & Cache
+*.tar
+*.zip
+*.gz
+
+# Secret files
+secrets.yaml
+.env.yaml
+.env.local
+

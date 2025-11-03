@@ -1,0 +1,30 @@
+{
+  "id": null,
+  "title": "AI Actions Monitor",
+  "tags": ["ai", "automation"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "type": "table",
+      "title": "AI Remediation Actions",
+      "targets": [
+        {
+          "expr": "ai_actions_total",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    }
+  ]
+}

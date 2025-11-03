@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  labels:
+    app: alertmanager
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname']
+      receiver: 'ai-agent'
+      repeat_interval: 5m
+    receivers:
+      - name: 'ai-agent'
+        webhook_configs:
+          - url: 'http://ai-agent-service.default.svc.cluster.local:8000/alert'

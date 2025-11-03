@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ai-monitor
+description: AI-powered DevOps Cloud Monitor (Gemini + Telegram)
+type: application
+version: 0.1.0
+appVersion: "1.0"
