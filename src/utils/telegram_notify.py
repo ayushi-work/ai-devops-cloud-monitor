@@ -1,8 +1,8 @@
 # src/utils/telegram_notify.py
 import requests
 import time
-from utils.config import settings
-from utils.log_helper import get_logger
+from .config import settings
+from .log_helper import get_logger
 
 logger = get_logger("telegram")
 

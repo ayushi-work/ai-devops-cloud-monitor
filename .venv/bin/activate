@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/ayushi/Coding/ai-devops-cloud-monitor/.venv"
+VIRTUAL_ENV="/Users/ayushi/Documents/Coding/ai-devops-cloud-monitor/.venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

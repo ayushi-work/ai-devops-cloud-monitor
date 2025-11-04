@@ -1,11 +1,11 @@
 # src/ai_agent.py
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from utils.config import settings
-from utils.gemini_client import analyze_alert
-from utils.kubectl_helper import perform_k8s_action
-from utils.telegram_notify import send_message
-from utils.log_helper import get_logger
+from .utils.config import settings
+from .utils.gemini_client import analyze_alert
+from .utils.kubectl_helper import perform_k8s_action
+from .utils.telegram_notify import send_message
+from .utils.log_helper import get_logger
 import uvicorn
 import traceback
 import time
@@ -95,4 +95,4 @@ async def handle_alert(request: Request):
         raise HTTPException(status_code=500, detail="Internal AI processing error")
 
 if __name__ == "__main__":
-    uvicorn.run("ai_agent:app", host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run("src.ai_agent:app", host="0.0.0.0", port=8000, log_level="info")

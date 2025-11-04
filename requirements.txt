@@ -4,3 +4,5 @@ requests
 google-generativeai
 kubernetes
 tenacity
+python-dotenv
+importlib-metadata>=4.6

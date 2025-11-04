@@ -1,8 +1,9 @@
 # src/utils/kubectl_helper.py
 import subprocess
 import shlex
-from utils.log_helper import get_logger
-from utils.config import settings
+import re
+from .log_helper import get_logger
+from .config import settings
 
 logger = get_logger("kubectl-helper")
 
@@ -52,28 +53,38 @@ def perform_k8s_action(analysis_text: str, labels: dict) -> str:
             # extract rest after AUTO:
             after = analysis_text.split("AUTO:")[1].strip()
             cmd_lower = after.lower()
+
+            def _normalize_resource_name(raw: str) -> str:
+                cleaned = raw.strip().strip("`'\"“”’`).,;")
+                cleaned = re.sub(r"[^a-zA-Z0-9.-]", "", cleaned)
+                return cleaned
+
+            def _parse_int_token(raw: str, default: int) -> int:
+                m = re.search(r"(\d+)", raw or "")
+                return int(m.group(1)) if m else default
+
             # naive parsing for scale
             if "scale" in cmd_lower and "deployment" in cmd_lower:
                 # example: "scale deployment cpu-app to 4"
-                parts = after.split()
+                parts = after.replace("`", " ").replace(",", " ").split()
                 # find deployment name and replicas
                 # simplistic parse:
                 if "deployment" in parts:
                     idx = parts.index("deployment")
-                    name = parts[idx+1]
+                    name = _normalize_resource_name(parts[idx+1]) if idx + 1 < len(parts) else ""
                     # find 'to' then number
                     if "to" in parts:
                         to_idx = parts.index("to")
-                        replicas = int(parts[to_idx+1])
+                        replicas = _parse_int_token(parts[to_idx+1] if to_idx + 1 < len(parts) else "", settings.DEFAULT_SCALE_REPLICAS)
                     else:
                         replicas = settings.DEFAULT_SCALE_REPLICAS
                     return _scale_deployment(name, replicas)
             if "restart" in cmd_lower and "deployment" in cmd_lower:
                 # example: "restart deployment my-app"
-                parts = after.split()
+                parts = after.replace("`", " ").replace(",", " ").split()
                 if "deployment" in parts:
                     idx = parts.index("deployment")
-                    name = parts[idx+1]
+                    name = _normalize_resource_name(parts[idx+1]) if idx + 1 < len(parts) else ""
                     return _restart_deployment(name)
             # fallback run as kubectl command
             ok, out = _run_cmd(after)

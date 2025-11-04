@@ -2,76 +2,147 @@ AI DevOps Cloud Monitor
 
 Overview
 
-This project provides an AI-assisted DevOps monitoring stack with a FastAPI agent integrating with Prometheus, Alertmanager, Kubernetes, Telegram notifications, and Grafana dashboards. It includes a Helm chart for Kubernetes deployment and raw Kubernetes manifests for quick starts.
+This project provides an AI-assisted DevOps monitoring stack. A FastAPI agent receives Alertmanager webhooks, summarizes context via Google Gemini, optionally auto-remediates Kubernetes workloads (scale/restart), and posts summaries to Telegram. It includes Helm charts, raw Kubernetes manifests, and Grafana dashboards.
 
 Features
 
-- FastAPI AI agent with health and Alertmanager webhook endpoints
-- Telegram notifications for alerts
-- Helpers to scale/restart Kubernetes workloads
-- Helm chart (`helm/ai-monitor`) for deployment
-- Sample Kubernetes manifests (`kubernetes/`)
+- FastAPI AI agent with `/healthz`, `/readyz`, and `/alert` endpoints
+- Gemini-based analysis with model auto-discovery and configurable `GEMINI_MODEL`
+- Auto-remediation helpers to scale/restart Kubernetes deployments
+- Telegram notifications (optional)
+- Helm chart (`helm/ai-monitor`) and raw manifests (`kubernetes/`)
 - Grafana dashboards and Prometheus datasource templates (`grafana/`)
 
-Quick Start (Local)
+Architecture (high level)
 
-1. Create and fill `.env` from `.env.example`.
-2. Create a virtual environment and install dependencies:
-   - python -m venv .venv && source .venv/bin/activate
-   - pip install -r requirements.txt
-3. Run the service:
-   - uvicorn src.ai_agent:app --host 0.0.0.0 --port 8080 --reload
+- Alertmanager → HTTP POST to agent `/alert`
+- Agent → summarize using Gemini → decide action → optional K8s change → Telegram notify
+- Actions use Kubernetes Python client first, falling back to `kubectl` if needed
 
-Demo Mode (no external deps)
+Requirements
 
-Run the agent with canned AI analysis and simulated Kubernetes actions. No Gemini API key, Telegram, or cluster required.
+- Python 3.10+ recommended (3.12 preferred). 3.9 works but prints legacy warnings.
+- `kubectl` configured if you want real remediation.
+- Optional: Gemini API key (`GOOGLE_API_KEY` or `GEMINI_API_KEY`), Telegram bot token/chat id.
 
-1. Set environment variable `DEMO_MODE=true` (and optionally port):
-   - macOS/Linux:
-     - DEMO_MODE=true uvicorn src.ai_agent:app --host 0.0.0.0 --port 8080 --reload
-   - Docker:
-     - docker build -t ai-devops-cloud-monitor:demo .
-     - docker run -e DEMO_MODE=true -p 8080:8000 ai-devops-cloud-monitor:demo
-2. In another shell, send the sample Alertmanager webhook:
-   - curl -s -X POST http://localhost:8080/alert -H 'Content-Type: application/json' \
-     --data @demo/sample-alert.json | jq .
-3. Expected behavior:
-   - The agent returns a response with an AI analysis and a simulated auto-scale action.
-   - If Telegram is not configured, messages are skipped gracefully.
+Environment variables (.env)
+
+- `GOOGLE_API_KEY` or `GEMINI_API_KEY`: Gemini access (omit for demo mode)
+- `GEMINI_MODEL` (optional): e.g. `gemini-2.5-flash` (auto-discovery is built-in)
+- `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` (optional)
+- `KUBECONFIG`: path to kubeconfig (defaults to standard locations)
+- `DEFAULT_SCALE_REPLICAS` (int, default 4)
+- `AUTO_REMEDIATE` (true/false, default true)
+- `DEMO_MODE` (true/false, default false)
+
+Local Setup
+
+1) Create venv and install deps
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -r requirements.txt
+```
+
+2) Create `.env` (optional for demo)
+
+```bash
+cp .env.example .env  # if provided; otherwise create with keys you need
+# minimally for real mode:
+# GOOGLE_API_KEY=...
+# TELEGRAM_TOKEN=...
+# TELEGRAM_CHAT_ID=...
+```
+
+Run (Local)
+
+- Real mode (recommended on Python 3.10+):
+
+```bash
+python3 -m uvicorn src.ai_agent:app --host 0.0.0.0 --port 8080
+```
+
+- Demo mode (no external deps):
+
+```bash
+DEMO_MODE=true python3 -m uvicorn src.ai_agent:app --host 0.0.0.0 --port 8080
+```
+
+End-to-End Test (Local)
+
+1) Start the agent (real or demo as above)
+2) Send a sample Alertmanager webhook:
+
+```bash
+curl -s -X POST http://localhost:8080/alert \
+  -H 'Content-Type: application/json' \
+  --data @demo/sample-alert.json | jq .
+```
+
+3) Expected:
+- Response contains `{"status":"processed", "action": ...}`
+- Logs show Gemini analysis; in real mode, a current model is auto-selected
+- If Kubernetes is reachable and `cpu-app` exists, a scale/restart action may occur
+- If Telegram configured, a message is sent; otherwise it is skipped gracefully
 
 Docker
 
 Build and run:
 
-- docker build -t ai-devops-cloud-monitor:local .
-- docker run --env-file .env -p 8080:8080 ai-devops-cloud-monitor:local
+```bash
+docker build -t ai-devops-cloud-monitor:local .
+docker run --env-file .env -p 8080:8080 ai-devops-cloud-monitor:local
+```
 
-Kubernetes (Helm)
+Demo via Docker:
 
-1. Ensure you have access to a cluster and `kubectl` context set.
-2. Set values in `helm/ai-monitor/values.yaml` or rely on defaults.
-3. Install chart:
-   - helm upgrade --install ai-monitor helm/ai-monitor
+```bash
+docker build -t ai-devops-cloud-monitor:demo .
+docker run -e DEMO_MODE=true -p 8080:8000 ai-devops-cloud-monitor:demo
+```
 
-Kubernetes (Manifests)
+Kubernetes via Manifests (quick test)
 
-Apply raw manifests for a quick test:
+```bash
+kubectl apply -f kubernetes/
+# or minimally deploy the sample app if you only want to test remediation
+kubectl apply -f kubernetes/sample-app-deployment.yaml
 
-- kubectl apply -f kubernetes/
+# If running the agent locally against a cluster, ensure kubectl works and KUBECONFIG is set
+export KUBECONFIG="$HOME/.kube/config"
+kubectl get deploy cpu-app -n default
+```
+
+Kubernetes via Helm
+
+```bash
+helm upgrade --install ai-monitor helm/ai-monitor
+```
+
+Grafana
+
+- Import JSON from `grafana/dashboards/`
+- Configure Prometheus using `grafana/datasources/prometheus-datasource.yaml` (or your platform’s preferred method)
+
+Troubleshooting
+
+- Port in use: `lsof -i :8080` then `kill -9 <PID>`
+- Python 3.9 warnings: upgrade to Python 3.10+ to remove legacy messages
+- Gemini model 404: set `GEMINI_MODEL` to a model enabled for your key (e.g., `gemini-2.5-flash`), or rely on auto-discovery
+- Kubernetes 404 "deployment not found": deploy the sample `cpu-app` or adjust the target name/namespace
+- No kube config: set `KUBECONFIG=$HOME/.kube/config` or run in-cluster
+- Disable auto-remediation while testing: `AUTO_REMEDIATE=false`
 
 Project Structure
 
-- .env.example
-- requirements.txt
-- Dockerfile
-- helm/ai-monitor
-  - Chart.yaml, values.yaml, templates/
-- kubernetes/
-  - ai-agent-deployment.yaml, ai-agent-service.yaml, alert rules, alertmanager config, sample app
-- src/
-  - ai_agent.py, utils/
-- grafana/
-  - dashboards/, datasources/
+- `.env.example` (if provided)
+- `requirements.txt`
+- `Dockerfile`
+- `helm/ai-monitor` (Chart, templates)
+- `kubernetes/` (agent/service/alert rules/alertmanager config/sample app)
+- `src/` (FastAPI app and utils)
+- `grafana/` (dashboards and datasource)
 
 License
 

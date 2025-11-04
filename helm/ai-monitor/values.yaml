@@ -10,11 +10,11 @@ service:
   port: 8000
 
 telegram:
-  token: ""
-  chat_id: ""
+  token: TELEGRAM_TOKEN
+  chat_id: TELEGRAM_CHAT_ID
 
 gemini:
-  api_key: ""
+  api_key: GEMINI_API_KEY
 
 resources:
   limits:

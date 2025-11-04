@@ -1,10 +1,19 @@
 # src/utils/config.py
 import os
+from typing import Optional
+try:
+    # Load variables from a .env file if present (local/dev convenience)
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    # If python-dotenv isn't installed, proceed with OS env vars only
+    pass
 from dataclasses import dataclass
 
 @dataclass
 class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
     TELEGRAM_TOKEN: str = os.getenv("TELEGRAM_TOKEN", "")
     TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
     KUBECONFIG: str = os.getenv("KUBECONFIG", "")
